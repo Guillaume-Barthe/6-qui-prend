@@ -1,4 +1,3 @@
-
 class Card():
     '''
     A Card object contains two attributes, self.value describes the value
@@ -24,4 +23,6 @@ class Card():
 
     def __repr__(self):
 
-        return "This card has value "+str(self.value)+" and costs "+str(self.cost)+" points "
+        #return "This card has value "+str(self.value)+" and costs "+str(self.cost)+" points "
+        return str(self.value)
+
