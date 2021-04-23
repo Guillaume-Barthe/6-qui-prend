@@ -1,4 +1,3 @@
-
 class player:
     '''
     A player object describes the player and his hand. The player can either be a is_machine
@@ -10,5 +9,5 @@ class player:
 
     def __init__(self, is_machine):
         self.size_hand = 10
-        self.board = [[]]
+        self.hand = []
         self.is_machine = is_machine
