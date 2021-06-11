@@ -1,3 +1,5 @@
+import numpy as np
+
 class player:
     '''
     A player object describes the player and his hand. The player can either be a is_machine
@@ -11,3 +13,4 @@ class player:
         self.size_hand = 10
         self.hand = []
         self.is_machine = is_machine
+        self.score = 0
