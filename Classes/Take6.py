@@ -1,3 +1,5 @@
+## This is the implementation of the Take6 environment
+
 from Classes.player import player
 from Classes.Card import Card
 import gym
@@ -62,9 +64,7 @@ class Take6():
             None.
             Returns the values of the four cards on the edge of the board. Those that are important when placing your next card
             '''
-            #print(self.state[len(self.state)-1])
-            #x_,y_ = np.where(self.state[len(self.state)-1] != 0)
-            #edge_positions = [(x, y) for x, y in zip(x_, y_)]
+
             x_0 = np.argmax(self.state[len(self.state)-1][0])
             x_1 = np.argmax(self.state[len(self.state)-1][1])
             x_2 = np.argmax(self.state[len(self.state)-1][2])
@@ -140,18 +140,27 @@ class Take6():
 
         def is_terminal(self):
             done = False
-            scores = [self.players[p].score for p in range(len(self.players))]
-            loser_score = np.max(scores)
-            loser = np.argmax(scores)
-            winner = np.argmin(scores)
+            losers = []
+            winners = []
+
+
             if len(self.player.hand)==0:
                 done = True
-                #print("player "+str(player)+' has lost with a score of '+str(loser_score)+' versus ' +str(np.min(scores)))
-            #elif len(self.player.hand)==0 and loser_score<66 :
-                #print("This round has ended and the scores are : "+str(scores))
-                #self.re_init_state()
+                scores = [self.players[p].score for p in range(len(self.players))]
+                loser_score = np.max(scores)
+                winner_score = np.min(scores)
+                scores_ = dict()
+                for i in range(len(scores)):
+                    s = scores[i]
+                    if s in scores_:
+                        scores_[s].append(i)
+                    else:
+                        scores_[s]=[i]
+                winners = scores_[winner_score]
+                losers = scores_[loser_score]
 
-            return done,loser,winner
+
+            return done,losers,winners
 
         def get_value(self,value):
             lastdigit = int(str(value)[-1])
@@ -189,7 +198,6 @@ class Take6():
             min = 150
             row = -1
             edge_pos = self.edge_cards()
-            #print(edge_pos)
             edge_cards = [self.board[u] for u in edge_pos]
             score = 0
             for i in range(len(edge_cards)):
@@ -202,17 +210,15 @@ class Take6():
                 row = np.argmin(scores)
                 col = 0
                 score = scores[row]
-                #print('A line was took and was worth ' + str(score)+" points")
                 self.board[row]=[0,0,0,0,0,0]
             else :
                 col = edge_pos[row][1]+1
-            #print(card,min,row,col)
+
             if col == 5:
                 for u in self.board[row]:
                     score+= self.get_value(u)
 
-                #print('A line was took and was worth ' + str(score)+" points")
-                #print(self.board[row])
+
                 #score = 3
                 self.board[row] = [card,0,0,0,0,0]
             else:
@@ -235,7 +241,6 @@ class Take6():
                 score = self.place_card(min_card)
                 compteur+=1
                 if score>0:
-                    #print('A line was took by player '+str(i_min)+ ' and was worth ' + str(score)+" points")
                     self.players[i_min].score+=score
 
             state = [card.value for card in self.players[0].hand]+[self.board]
@@ -244,16 +249,26 @@ class Take6():
 
         def step(self,actions):
             state = deepcopy(self.state)
-            #print(state)
             self.state = self.get_transition(state,actions)
             bool,loser,winner = self.is_terminal()
-            if bool:
-                if winner == 0:
-                    reward = 1
+            if len(winner)==1:
+                win = winner[0]
+                if bool:
+                    if win == 0:
+                        reward = 1
+                    else:
+                        reward = 0
                 else:
                     reward = 0
             else:
-                reward = 0
+                if bool :
+                    #print("TIE",len(winner))
+                    if 0 in winner:
+                        reward = 1
+                    else:
+                        reward = 0
+                else:
+                    reward = 0
             return reward,bool,winner
 
 
