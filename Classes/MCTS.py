@@ -1,3 +1,6 @@
+## This is the implementation of the Monte Carlo Tree Search
+
+
 from Classes.Take6 import Take6,Agent
 from Classes.Node import Node
 import random
@@ -7,14 +10,14 @@ from Classes.Card import Card
 
 class MCTS(Agent):
 
-    def __init__(self, environment=Take6):
-        self.game = environment(num_players =3)
-        self.fixed_hand = [Card(5),Card(70),Card(12),Card(39),Card(24),Card(27),Card(31),Card(83),Card(61),Card(94)]
+    def __init__(self, environment=Take6,num_players = 2,confidence = 1):
+        self.game = environment(num_players = num_players)
+        self.fixed_hand = [Card(5),Card(70),Card(12),Card(35),Card(24),Card(27),Card(31),Card(85),Card(61),Card(94)]
         self.fixed_board = board = np.zeros((4,6)).astype(int)
         self.fixed_board[0][0]=36
         self.fixed_board[1][0]=13
         self.fixed_board[2][0]=93
-        self.fixed_board[3][0]=100
+        self.fixed_board[3][0]=47
         self.game.determ_init_state(self.fixed_hand,self.fixed_board)
         self.trees = dict()
         self.root = Node(is_root=True, state=self.game.state) # a tree node with no parent
@@ -22,9 +25,62 @@ class MCTS(Agent):
         #self.fixed_hand = deepcopy(self.game.players[0].hand)
         #self.fixed_board = deepcopy(self.game.board)
         self.nb_games = 0
+        self.C = confidence
 
     def reset(self):
         self.current_node = self.root
+
+    def train_continous(self, nb_rounds = 10,printing=False):
+        while not final:
+            root = Node(is_root = True, state = self.game.state)
+            current_node = deepcopy(root)
+            player = deepcopy(self.game.players[0])
+            available_actions = self.game.get_actions(current_node.state,player)
+            known_actions = current_node.children.keys()
+            unknown_actions = list(set(available_actions) - set(known_actions))
+
+            if unknown_actions == []:
+                if printing:
+                    print('node fully expanded: choose next with UCT')
+                #compute next move according to the MCTS algorithm with UCT
+                action = self.next_move(self.C)
+                moves = [action]
+                current_node = self.current_node.children[action]
+                for p in range(1,len(self.game.players)):
+                    adversary_actions = self.game.get_actions(self.current_node.state,self.game.players[p])
+                    adv_action = np.random.choice(adversary_actions)
+                    moves.append(adv_action)
+
+                reward, final,_ = self.game.step(moves)
+
+
+            # unknown tree area: need to expand the tree
+            else:
+                if printing:
+                    print('node not fully expanded: explore and expand')
+                # find an action that has not been explored
+                action = unknown_actions[0]
+                child= self.expand(self.current_node, action) # play default policy until the end to get a reward
+                self.current_node = child
+
+                # simulate the end of the game with random plays
+                reward = self.simulate()
+
+                if printing:
+                    print('node expanded')
+
+                final = True
+
+        # game is over, reward is collected, now we backpropagate it on the path
+
+        self.backpropagate(self.current_node, reward) # backprop the rewards up in the tree
+        if printing:
+            print('reward backpropagated from child')
+            #self.game.display()
+
+
+
+
 
     def train(self, nb_rounds=10, printing=True):
         for n in range(nb_rounds):
@@ -42,15 +98,14 @@ class MCTS(Agent):
                 available_actions = self.game.get_actions(self.current_node.state,self.game.players[0])
                 known_actions = self.current_node.children.keys()
                 unknown_actions = list(set(available_actions) - set(known_actions))
-                #print(self.game.players[0].hand)
-                #print(self.game.board)
+
 
                 # known tree area:
                 if unknown_actions == []:
                     if printing:
                         print('node fully expanded: choose next with UCT')
                     #compute next move according to the MCTS algorithm with UCT
-                    action = self.next_move()
+                    action = self.next_move(self.C)
                     moves = [action]
                     self.current_node = self.current_node.children[action]
                     for p in range(1,len(self.game.players)):
@@ -73,6 +128,7 @@ class MCTS(Agent):
                     # simulate the end of the game with random plays
                     reward = self.simulate()
 
+
                     if printing:
                         print('node expanded')
 
@@ -92,7 +148,7 @@ class MCTS(Agent):
 
 
 
-    def next_move(self):
+    def next_move(self,C):
         """
         returns the next move (integer action) given a board state (Node object)
         """
@@ -100,11 +156,11 @@ class MCTS(Agent):
         ## TODO:  implement UCT decision with C_p = 1.
         for action, child in self.current_node.children.items():
             child.compute_value()
-            values[action] = round(child.Q +child.U,2)
-        if self.nb_games % 1000 == 0 :
-            print(values)
-            test_action = max(values, key=(lambda k: values[k]))
-            print("The chosen card for action "+str(test_action)+" is a "+str(self.game.players[0].hand[test_action]))
+            values[action] = round(child.Q +C*child.U,2)
+        #if self.nb_games % 1000 == 0 :
+            #print(values)
+            #test_action = max(values, key=(lambda k: values[k]))
+            #print("The chosen card for action "+str(test_action)+" is a "+str(self.game.players[0].hand[test_action]))
 
 
         chosen_action = max(values, key=(lambda k: values[k]))
@@ -121,6 +177,7 @@ class MCTS(Agent):
 #             self.game.display(states=current_node.state)
 
             current_node.nb_wins += reward
+
 
             current_node.nb_games += 1
             current_node = current_node.parent
@@ -151,7 +208,10 @@ class MCTS(Agent):
     def simulate(self):
         test,rew,_ = self.game.is_terminal()
         if test:
-            return rew
+            if 0 in rew:
+                return 1
+            else:
+                return 0
         finale = False
         while not finale:
             act = []
@@ -172,7 +232,7 @@ class MCTS(Agent):
         if unknown_actions == []:
 
             #compute next move according to the MCTS algorithm with UCT
-            action = self.next_move()
+            action = self.next_move(self.C)
             self.current_node = self.current_node.children[action]
 
 
